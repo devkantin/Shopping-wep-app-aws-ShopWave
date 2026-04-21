@@ -1,6 +1,6 @@
 resource "aws_db_subnet_group" "main" {
   name       = "${local.name}-db-subnet-group"
-  subnet_ids = aws_subnet.private[*].id
+  subnet_ids = aws_subnet.private_db[*].id
   tags       = merge(local.tags, { Name = "${local.name}-db-subnet-group" })
 }
 
