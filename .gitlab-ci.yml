@@ -23,7 +23,7 @@ test:
     - pip install -q -r app/requirements.txt
     - pip install -q pytest pytest-cov
   script:
-    - pytest tests/ -v --tb=short --cov=app --cov-report=term-missing
+    - pytest tests/ -v --tb=short --cov=app --cov-report=term-missing --cov-report=xml
   coverage: '/TOTAL.*\s+(\d+%)$/'
   artifacts:
     reports:
