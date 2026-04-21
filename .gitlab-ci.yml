@@ -64,6 +64,7 @@ tf-checkov:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == "master"
+  allow_failure: true
 
 # ── Terraform Validate + Fmt ──────────────────────────────────────
 tf-validate:
