@@ -10,6 +10,21 @@ variables:
   TF_ROOT: ${CI_PROJECT_DIR}/terraform
   AWS_DEFAULT_REGION: us-east-1
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
+  # Set these in GitLab → Settings → CI/CD → Variables:
+  #   TF_STATE_BUCKET      e.g. shopwave-terraform-state-<account-id>
+  #   TF_STATE_LOCK_TABLE  e.g. shopwave-terraform-lock
+  TF_STATE_KEY: shopwave/prod/terraform.tfstate
+
+.tf_init: &tf_init
+  - cd $TF_ROOT
+  - >
+    terraform init
+    -backend-config="bucket=$TF_STATE_BUCKET"
+    -backend-config="key=$TF_STATE_KEY"
+    -backend-config="region=$AWS_DEFAULT_REGION"
+    -backend-config="dynamodb_table=$TF_STATE_LOCK_TABLE"
+    -backend-config="encrypt=true"
+    -input=false
 
 cache:
   paths:
@@ -66,7 +81,7 @@ tf-checkov:
     - if: $CI_COMMIT_BRANCH == "master"
   allow_failure: true
 
-# ── Terraform Validate + Fmt ──────────────────────────────────────
+# ── Terraform Validate + Fmt (no backend needed) ──────────────────
 tf-validate:
   stage: validate
   image:
@@ -89,8 +104,7 @@ tf-plan:
     name: hashicorp/terraform:1.6
     entrypoint: [""]
   before_script:
-    - cd $TF_ROOT
-    - terraform init
+    - *tf_init
   script:
     - >
       terraform plan
@@ -121,15 +135,12 @@ infracost:
     INFRACOST_CURRENCY: USD
     INFRACOST_LOG_LEVEL: warn
   script:
-    # Generate cost breakdown from the saved plan JSON
     - >
       infracost breakdown
       --path terraform/plan.json
       --format json
       --out-file infracost-report.json
-    # Human-readable table to stdout (visible in CI log)
     - infracost output --path infracost-report.json --format table
-    # Diff view — shows cost delta vs baseline (0 on first run)
     - infracost output --path infracost-report.json --format diff
   artifacts:
     name: infracost-report
@@ -140,7 +151,6 @@ infracost:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == "master"
-  # Never block the pipeline — cost is advisory, not a gate
   allow_failure: true
 
 # ── Terraform Apply (manual, master branch only) ──────────────────
@@ -149,11 +159,8 @@ tf-deploy:
   image:
     name: hashicorp/terraform:1.6
     entrypoint: [""]
-  dependencies:
-    - tf-plan
   before_script:
-    - cd $TF_ROOT
-    - terraform init
+    - *tf_init
   script:
     - terraform apply -input=false plan.tfplan
     - echo "APP_URL=$(terraform output -raw app_url)" >> deploy.env
@@ -167,6 +174,8 @@ tf-deploy:
     - if: $CI_COMMIT_BRANCH == "master"
       when: manual
   allow_failure: false
+  dependencies:
+    - tf-plan
 
 # ── Terraform Destroy (manual, emergency) ─────────────────────────
 tf-destroy:
@@ -175,8 +184,7 @@ tf-destroy:
     name: hashicorp/terraform:1.6
     entrypoint: [""]
   before_script:
-    - cd $TF_ROOT
-    - terraform init
+    - *tf_init
   script:
     - terraform destroy -auto-approve -var="db_password=$TF_VAR_DB_PASSWORD" -input=false
   rules:
