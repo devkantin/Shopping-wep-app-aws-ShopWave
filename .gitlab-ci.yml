@@ -3,6 +3,7 @@ stages:
   - lint
   - validate
   - plan
+  - cost
   - deploy
 
 variables:
@@ -93,15 +94,49 @@ tf-plan:
       -var="db_password=$TF_VAR_DB_PASSWORD"
       -out=plan.tfplan
       -input=false
+    - terraform show -json plan.tfplan > plan.json
   artifacts:
     name: terraform-plan
     paths:
       - terraform/plan.tfplan
+      - terraform/plan.json
       - terraform/app.zip
     expire_in: 1 day
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == "master"
+
+# ── Infracost — cost estimate before deploy ───────────────────────
+infracost:
+  stage: cost
+  image: infracost/infracost:ci-0.10
+  dependencies:
+    - tf-plan
+  variables:
+    INFRACOST_CURRENCY: USD
+    INFRACOST_LOG_LEVEL: warn
+  script:
+    # Generate cost breakdown from the saved plan JSON
+    - >
+      infracost breakdown
+      --path terraform/plan.json
+      --format json
+      --out-file infracost-report.json
+    # Human-readable table to stdout (visible in CI log)
+    - infracost output --path infracost-report.json --format table
+    # Diff view — shows cost delta vs baseline (0 on first run)
+    - infracost output --path infracost-report.json --format diff
+  artifacts:
+    name: infracost-report
+    paths:
+      - infracost-report.json
+    expire_in: 7 days
+    when: always
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "master"
+  # Never block the pipeline — cost is advisory, not a gate
+  allow_failure: true
 
 # ── Terraform Apply (manual, master branch only) ──────────────────
 tf-deploy:
