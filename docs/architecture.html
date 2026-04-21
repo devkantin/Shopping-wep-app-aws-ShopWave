@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ShopWave — AWS Architecture</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+
+  header {
+    background: linear-gradient(135deg, #1a1f2e 0%, #0f1117 100%);
+    border-bottom: 1px solid #2d3748;
+    padding: 20px 40px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  header h1 { font-size: 1.6rem; font-weight: 700; }
+  header span { font-size: 2rem; }
+  .badge { background: #FF9900; color: #000; font-size: 0.7rem; font-weight: 700; padding: 3px 8px; border-radius: 4px; letter-spacing: 0.05em; }
+
+  .canvas { padding: 40px; overflow-x: auto; }
+
+  /* ── Layer containers ── */
+  .layer { position: relative; margin-bottom: 16px; }
+  .layer-label {
+    font-size: 0.65rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    color: #718096; margin-bottom: 8px; padding-left: 4px;
+  }
+  .layer-body {
+    border: 1.5px dashed; border-radius: 12px; padding: 20px 24px;
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  }
+
+  /* layer colours */
+  .l-internet  { border-color: #4299e1; background: rgba(66,153,225,0.04); }
+  .l-public    { border-color: #48bb78; background: rgba(72,187,120,0.04); }
+  .l-private   { border-color: #9f7aea; background: rgba(159,122,234,0.04); }
+  .l-db        { border-color: #ed8936; background: rgba(237,137,54,0.04);  }
+  .l-global    { border-color: #fc8181; background: rgba(252,129,129,0.04); }
+
+  /* ── Service boxes ── */
+  .svc {
+    background: #1a1f2e; border: 1px solid #2d3748; border-radius: 10px;
+    padding: 14px 18px; min-width: 120px; text-align: center;
+    transition: transform 0.15s, box-shadow 0.15s; cursor: default;
+    position: relative;
+  }
+  .svc:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+  .svc .icon { font-size: 2rem; display: block; margin-bottom: 6px; }
+  .svc .name { font-size: 0.78rem; font-weight: 600; color: #e2e8f0; }
+  .svc .detail { font-size: 0.65rem; color: #718096; margin-top: 3px; }
+
+  /* accent borders per service type */
+  .svc.alb    { border-top: 3px solid #FC8181; }
+  .svc.ec2    { border-top: 3px solid #F6AD55; }
+  .svc.rds    { border-top: 3px solid #68D391; }
+  .svc.s3     { border-top: 3px solid #63B3ED; }
+  .svc.nat    { border-top: 3px solid #B794F4; }
+  .svc.igw    { border-top: 3px solid #4299E1; }
+  .svc.asg    { border-top: 3px solid #F6AD55; }
+  .svc.iam    { border-top: 3px solid #FBD38D; }
+  .svc.cw     { border-top: 3px solid #68D391; }
+  .svc.sg     { border-top: 3px solid #FC8181; }
+  .svc.vpc    { border-top: 3px solid #9F7AEA; }
+  .svc.user   { border-top: 3px solid #4299e1; }
+  .svc.ci     { border-top: 3px solid #FC6D26; }
+  .svc.tf     { border-top: 3px solid #7B42BC; }
+
+  /* ── Arrows ── */
+  .arrow-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 4px 0; }
+  .arrow { color: #4a5568; font-size: 1.4rem; }
+  .arrow-label { font-size: 0.62rem; color: #718096; background: #1a1f2e; border: 1px solid #2d3748; border-radius: 4px; padding: 2px 7px; }
+
+  /* ── AZ columns ── */
+  .az-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%; }
+  .az-col { border: 1px solid #2d3748; border-radius: 8px; padding: 14px; }
+  .az-title { font-size: 0.62rem; font-weight: 700; color: #718096; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; }
+
+  /* ── Flow section ── */
+  .flow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+  /* ── CI/CD panel ── */
+  .cicd-panel {
+    margin-top: 32px; border: 1.5px dashed #FC6D26; border-radius: 12px;
+    padding: 20px 24px; background: rgba(252,109,38,0.04);
+  }
+  .cicd-title { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #FC6D26; margin-bottom: 16px; }
+  .stages { display: flex; align-items: center; gap: 0; flex-wrap: wrap; }
+  .stage {
+    background: #1a1f2e; border: 1px solid #2d3748; border-radius: 8px;
+    padding: 10px 14px; text-align: center; min-width: 90px;
+  }
+  .stage .s-icon { font-size: 1.2rem; }
+  .stage .s-name { font-size: 0.65rem; font-weight: 700; color: #e2e8f0; margin-top: 4px; }
+  .stage .s-tool { font-size: 0.58rem; color: #718096; margin-top: 2px; }
+  .stage-arrow { color: #4a5568; font-size: 1.1rem; padding: 0 4px; }
+
+  /* ── Legend ── */
+  .legend { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 24px; padding: 16px 20px; background: #1a1f2e; border-radius: 8px; border: 1px solid #2d3748; }
+  .leg-item { display: flex; align-items: center; gap: 6px; font-size: 0.68rem; color: #a0aec0; }
+  .leg-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <span>🛍️</span>
+  <div>
+    <h1>ShopWave — AWS Architecture</h1>
+    <div style="font-size:0.8rem;color:#718096;margin-top:2px;">3-Tier · Multi-AZ · Private Subnets · Auto Scaling · GitLab CI/CD</div>
+  </div>
+  <div style="margin-left:auto;display:flex;gap:8px;">
+    <span class="badge">AWS</span>
+    <span class="badge" style="background:#7B42BC;color:#fff;">Terraform</span>
+    <span class="badge" style="background:#FC6D26;color:#fff;">GitLab CI</span>
+  </div>
+</header>
+
+<div class="canvas">
+
+  <!-- INTERNET -->
+  <div class="layer">
+    <div class="layer-label">🌐 Internet / Users</div>
+    <div class="layer-body l-internet">
+      <div class="flow">
+        <div class="svc user"><span class="icon">👤</span><div class="name">Users</div><div class="detail">Web Browser</div></div>
+        <div class="arrow">→</div>
+        <div class="svc igw"><span class="icon">🌐</span><div class="name">Internet Gateway</div><div class="detail">VPC entry point</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-row"><span class="arrow">↓</span><span class="arrow-label">HTTP :80</span></div>
+
+  <!-- PUBLIC TIER -->
+  <div class="layer">
+    <div class="layer-label">🟢 Public Tier — ALB + NAT Gateway (10.0.1.x / 10.0.2.x)</div>
+    <div class="layer-body l-public">
+      <div class="az-grid">
+        <div class="az-col">
+          <div class="az-title">📍 AZ us-east-1a</div>
+          <div class="flow">
+            <div class="svc alb"><span class="icon">⚖️</span><div class="name">ALB</div><div class="detail">Application Load Balancer</div></div>
+            <div class="svc nat"><span class="icon">🔀</span><div class="name">NAT Gateway</div><div class="detail">+ Elastic IP</div></div>
+          </div>
+        </div>
+        <div class="az-col">
+          <div class="az-title">📍 AZ us-east-1b</div>
+          <div class="flow">
+            <div class="svc alb"><span class="icon">⚖️</span><div class="name">ALB</div><div class="detail">Cross-zone LB</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-row"><span class="arrow">↓</span><span class="arrow-label">HTTP :80 / :5000 — ALB SG only</span></div>
+
+  <!-- PRIVATE APP TIER -->
+  <div class="layer">
+    <div class="layer-label">🟣 Private App Tier — EC2 Auto Scaling Group (10.0.11.x / 10.0.12.x)</div>
+    <div class="layer-body l-private">
+      <div class="az-grid">
+        <div class="az-col">
+          <div class="az-title">📍 AZ us-east-1a</div>
+          <div class="flow">
+            <div class="svc ec2"><span class="icon">🖥️</span><div class="name">EC2 t3.micro</div><div class="detail">Amazon Linux 2023<br>Nginx + Gunicorn</div></div>
+          </div>
+        </div>
+        <div class="az-col">
+          <div class="az-title">📍 AZ us-east-1b</div>
+          <div class="flow">
+            <div class="svc ec2"><span class="icon">🖥️</span><div class="name">EC2 t3.micro</div><div class="detail">Amazon Linux 2023<br>Flask :5000</div></div>
+          </div>
+        </div>
+      </div>
+      <div style="width:100%;margin-top:14px;display:flex;gap:14px;flex-wrap:wrap;">
+        <div class="svc asg"><span class="icon">📈</span><div class="name">Auto Scaling Group</div><div class="detail">min 1 / desired 2 / max 4<br>CPU &gt; 70% → scale out</div></div>
+        <div class="svc cw"><span class="icon">📊</span><div class="name">CloudWatch</div><div class="detail">CPU alarm → ASG policy</div></div>
+        <div class="svc iam"><span class="icon">🔑</span><div class="name">IAM Role</div><div class="detail">EC2 → S3 GetObject only</div></div>
+        <div class="svc s3"><span class="icon">🪣</span><div class="name">S3 Bucket</div><div class="detail">app.zip package<br>Private + encrypted</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-row"><span class="arrow">↓</span><span class="arrow-label">MySQL :3306 — EC2 SG only</span></div>
+
+  <!-- PRIVATE DB TIER -->
+  <div class="layer">
+    <div class="layer-label">🟠 Private DB Tier — RDS MySQL 8.0 (10.0.21.x / 10.0.22.x)</div>
+    <div class="layer-body l-db">
+      <div class="az-grid">
+        <div class="az-col">
+          <div class="az-title">📍 AZ us-east-1a (primary)</div>
+          <div class="flow">
+            <div class="svc rds"><span class="icon">🗄️</span><div class="name">RDS MySQL 8.0</div><div class="detail">db.t3.micro · 20GB gp2<br>Private, not public</div></div>
+          </div>
+        </div>
+        <div class="az-col">
+          <div class="az-title">📍 AZ us-east-1b (subnet)</div>
+          <div class="flow">
+            <div class="svc rds" style="opacity:0.5;"><span class="icon">🗄️</span><div class="name">DB Subnet</div><div class="detail">Multi-AZ ready<br>(enable for HA)</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECURITY GROUPS -->
+  <div class="layer" style="margin-top:24px;">
+    <div class="layer-label">🔒 Security Groups</div>
+    <div class="layer-body l-global" style="gap:14px;">
+      <div class="svc sg"><span class="icon">🛡️</span><div class="name">ALB SG</div><div class="detail">IN: 0.0.0.0/0 :80<br>OUT: all</div></div>
+      <div class="arrow">→</div>
+      <div class="svc sg"><span class="icon">🛡️</span><div class="name">EC2 SG</div><div class="detail">IN: ALB SG :80/:5000<br>OUT: all (NAT)</div></div>
+      <div class="arrow">→</div>
+      <div class="svc sg"><span class="icon">🛡️</span><div class="name">RDS SG</div><div class="detail">IN: EC2 SG :3306<br>OUT: none</div></div>
+    </div>
+  </div>
+
+  <!-- CI/CD PIPELINE -->
+  <div class="cicd-panel">
+    <div class="cicd-title">⚙️ GitLab CI/CD Pipeline</div>
+    <div class="stages">
+      <div class="stage"><div class="s-icon">🧪</div><div class="s-name">test</div><div class="s-tool">pytest · 90%</div></div>
+      <span class="stage-arrow">→</span>
+      <div class="stage"><div class="s-icon">🔍</div><div class="s-name">lint</div><div class="s-tool">tflint · checkov</div></div>
+      <span class="stage-arrow">→</span>
+      <div class="stage"><div class="s-icon">✅</div><div class="s-name">validate</div><div class="s-tool">tf validate · fmt</div></div>
+      <span class="stage-arrow">→</span>
+      <div class="stage"><div class="s-icon">📋</div><div class="s-name">plan</div><div class="s-tool">terraform plan</div></div>
+      <span class="stage-arrow">→</span>
+      <div class="stage"><div class="s-icon">💰</div><div class="s-name">cost</div><div class="s-tool">infracost</div></div>
+      <span class="stage-arrow">→</span>
+      <div class="stage" style="border-color:#FC6D26;"><div class="s-icon">🚀</div><div class="s-name">deploy</div><div class="s-tool">tf apply · manual</div></div>
+    </div>
+    <div style="display:flex;gap:14px;margin-top:16px;flex-wrap:wrap;">
+      <div class="svc ci" style="min-width:100px;"><span class="icon" style="font-size:1.4rem;">🦊</span><div class="name">GitLab CI</div><div class="detail">Hosted runners</div></div>
+      <div class="svc tf" style="min-width:100px;"><span class="icon" style="font-size:1.4rem;">🏗️</span><div class="name">Terraform 1.6</div><div class="detail">IaC provisioning</div></div>
+      <div class="svc" style="min-width:100px;border-top:3px solid #68D391;"><span class="icon" style="font-size:1.4rem;">🪝</span><div class="name">pre-commit</div><div class="detail">antonbabenko hooks</div></div>
+      <div class="svc" style="min-width:100px;border-top:3px solid #FBD38D;"><span class="icon" style="font-size:1.4rem;">💰</span><div class="name">Infracost</div><div class="detail">~$80/month</div></div>
+    </div>
+  </div>
+
+  <!-- LEGEND -->
+  <div class="legend">
+    <div class="leg-item"><div class="leg-dot" style="background:#48bb78"></div> Public Subnet</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#9f7aea"></div> Private App Subnet</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#ed8936"></div> Private DB Subnet</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#4299e1"></div> Internet-facing</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#FC6D26"></div> CI/CD</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#fc8181"></div> Security Group</div>
+    <span style="margin-left:auto;font-size:0.62rem;color:#4a5568;">Region: us-east-1 · VPC: 10.0.0.0/16</span>
+  </div>
+
+</div>
+</body>
+</html>
