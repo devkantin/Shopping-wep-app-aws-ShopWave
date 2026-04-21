@@ -112,7 +112,9 @@ tf-plan:
 # ── Infracost — cost estimate before deploy ───────────────────────
 infracost:
   stage: cost
-  image: infracost/infracost:ci-0.10
+  image:
+    name: infracost/infracost:ci-0.10
+    entrypoint: [""]
   dependencies:
     - tf-plan
   variables:
