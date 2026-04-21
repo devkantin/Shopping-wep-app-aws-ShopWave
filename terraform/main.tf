@@ -1,7 +1,7 @@
 terraform {
   required_providers {
-    aws    = { source = "hashicorp/aws", version = "~> 5.0" }
-    random = { source = "hashicorp/random", version = "~> 3.0" }
+    aws     = { source = "hashicorp/aws", version = "~> 5.0" }
+    random  = { source = "hashicorp/random", version = "~> 3.0" }
     archive = { source = "hashicorp/archive", version = "~> 2.0" }
   }
 }
@@ -17,8 +17,16 @@ locals {
 data "aws_ami" "al2023" {
   most_recent = true
   owners      = ["amazon"]
-  filter { name = "name";          values = ["al2023-ami-*-x86_64"] }
-  filter { name = "architecture";  values = ["x86_64"] }
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-*-x86_64"]
+  }
+
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
+  }
 }
 
 resource "random_id" "suffix" { byte_length = 4 }

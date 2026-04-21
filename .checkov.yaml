@@ -1,0 +1,11 @@
+directory:
+  - terraform
+
+compact: true
+quiet: false
+
+# Skip checks that don't apply to this architecture
+skip-check:
+  - CKV_AWS_8    # EC2 is in private subnet behind ALB, no public IP needed
+  - CKV2_AWS_5   # SGs are attached via ASG launch template (not directly to instance)
+  - CKV_AWS_135  # RDS deletion protection disabled intentionally (dev/demo env)

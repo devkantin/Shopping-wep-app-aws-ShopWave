@@ -3,7 +3,7 @@ resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_support   = true
   enable_dns_hostnames = true
-  tags = merge(local.tags, { Name = "${local.name}-vpc" })
+  tags                 = merge(local.tags, { Name = "${local.name}-vpc" })
 }
 
 resource "aws_internet_gateway" "igw" {
@@ -18,7 +18,7 @@ resource "aws_subnet" "public" {
   cidr_block              = "10.0.${count.index + 1}.0/24"
   availability_zone       = local.azs[count.index]
   map_public_ip_on_launch = true
-  tags = merge(local.tags, { Name = "${local.name}-public-${local.azs[count.index]}", Tier = "public" })
+  tags                    = merge(local.tags, { Name = "${local.name}-public-${local.azs[count.index]}", Tier = "public" })
 }
 
 # ── Private App Subnets (EC2 ASG — 2 AZs) ────────────────────────
@@ -27,7 +27,7 @@ resource "aws_subnet" "private_app" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = "10.0.${count.index + 11}.0/24"
   availability_zone = local.azs[count.index]
-  tags = merge(local.tags, { Name = "${local.name}-private-app-${local.azs[count.index]}", Tier = "app" })
+  tags              = merge(local.tags, { Name = "${local.name}-private-app-${local.azs[count.index]}", Tier = "app" })
 }
 
 # ── Private DB Subnets (RDS — 2 AZs) ─────────────────────────────
@@ -36,7 +36,7 @@ resource "aws_subnet" "private_db" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = "10.0.${count.index + 21}.0/24"
   availability_zone = local.azs[count.index]
-  tags = merge(local.tags, { Name = "${local.name}-private-db-${local.azs[count.index]}", Tier = "db" })
+  tags              = merge(local.tags, { Name = "${local.name}-private-db-${local.azs[count.index]}", Tier = "db" })
 }
 
 # ── NAT Gateway (in public subnet AZ-a) ──────────────────────────
@@ -57,7 +57,12 @@ resource "aws_nat_gateway" "main" {
 # Public → Internet Gateway
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
-  route { cidr_block = "0.0.0.0/0"; gateway_id = aws_internet_gateway.igw.id }
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
+  }
+
   tags = merge(local.tags, { Name = "${local.name}-public-rt" })
 }
 
@@ -70,7 +75,12 @@ resource "aws_route_table_association" "public" {
 # Private App → NAT Gateway (outbound only)
 resource "aws_route_table" "private_app" {
   vpc_id = aws_vpc.main.id
-  route { cidr_block = "0.0.0.0/0"; nat_gateway_id = aws_nat_gateway.main.id }
+
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.main.id
+  }
+
   tags = merge(local.tags, { Name = "${local.name}-private-app-rt" })
 }
 

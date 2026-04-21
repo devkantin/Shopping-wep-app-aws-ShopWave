@@ -20,7 +20,7 @@ resource "aws_db_instance" "mysql" {
   vpc_security_group_ids = [aws_security_group.rds.id]
 
   # Two private subnets across 2 AZs satisfies multi-AZ subnet requirement
-  multi_az            = false   # set true for production HA
+  multi_az            = false # set true for production HA
   publicly_accessible = false
   skip_final_snapshot = true
   deletion_protection = false

@@ -1,5 +1,6 @@
 stages:
   - test
+  - lint
   - validate
   - plan
   - deploy
@@ -13,7 +14,7 @@ cache:
   paths:
     - .pip-cache/
 
-# ── Test ─────────────────────────────────────────────────────────
+# ── Python Tests ──────────────────────────────────────────────────
 test:
   stage: test
   image: python:3.11-slim
@@ -30,7 +31,38 @@ test:
         path: coverage.xml
     when: always
 
-# ── Terraform validate ────────────────────────────────────────────
+# ── TFLint (Anton Babenko ruleset) ────────────────────────────────
+tf-lint:
+  stage: lint
+  image:
+    name: ghcr.io/terraform-linters/tflint-bundle:latest
+    entrypoint: [""]
+  before_script:
+    - cd $TF_ROOT
+    - tflint --init --config=../.tflint.hcl
+  script:
+    - tflint --config=../.tflint.hcl --format=compact
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "master"
+
+# ── Checkov Security Scan ─────────────────────────────────────────
+tf-checkov:
+  stage: lint
+  image: bridgecrew/checkov:latest
+  script:
+    - checkov --config-file .checkov.yaml --output junitxml > checkov-report.xml || true
+    - checkov --config-file .checkov.yaml
+  artifacts:
+    when: always
+    reports:
+      junit: checkov-report.xml
+    expire_in: 7 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "master"
+
+# ── Terraform Validate + Fmt ──────────────────────────────────────
 tf-validate:
   stage: validate
   image:
@@ -44,9 +76,9 @@ tf-validate:
     - terraform fmt -check -diff
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "master"
 
-# ── Terraform plan ────────────────────────────────────────────────
+# ── Terraform Plan ────────────────────────────────────────────────
 tf-plan:
   stage: plan
   image:
@@ -69,9 +101,9 @@ tf-plan:
     expire_in: 1 day
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "master"
 
-# ── Terraform apply (manual, main branch only) ────────────────────
+# ── Terraform Apply (manual, master branch only) ──────────────────
 tf-deploy:
   stage: deploy
   image:
@@ -92,11 +124,11 @@ tf-deploy:
     name: production
     url: $APP_URL
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "master"
       when: manual
   allow_failure: false
 
-# ── Terraform destroy (manual, emergency) ────────────────────────
+# ── Terraform Destroy (manual, emergency) ─────────────────────────
 tf-destroy:
   stage: deploy
   image:
@@ -108,6 +140,6 @@ tf-destroy:
   script:
     - terraform destroy -auto-approve -var="db_password=$TF_VAR_DB_PASSWORD" -input=false
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "master"
       when: manual
   allow_failure: false

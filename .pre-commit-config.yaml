@@ -1,0 +1,28 @@
+repos:
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.96.1
+    hooks:
+      # Format check — fails if any .tf file is not canonical
+      - id: terraform_fmt
+
+      # Validate HCL syntax and provider schema
+      - id: terraform_validate
+        args:
+          - --tf-init-args=-backend=false
+
+      # Lint rules (AWS plugin)
+      - id: terraform_tflint
+        args:
+          - --args=--config=__GIT_WORKING_DIR__/.tflint.hcl
+
+      # Security & compliance scan (checkov)
+      - id: terraform_checkov
+        args:
+          - --args=--config-file=__GIT_WORKING_DIR__/.checkov.yaml
+
+      # Docs — keep README in sync with variables/outputs
+      - id: terraform_docs
+        args:
+          - --hook-config=--path-to-file=terraform/README.md
+          - --hook-config=--add-to-existing-file=true
+          - --hook-config=--create-file-if-not-exist=true

@@ -30,7 +30,7 @@ resource "aws_s3_object" "app" {
 resource "aws_iam_role" "ec2" {
   name = "${local.name}-ec2-role"
   assume_role_policy = jsonencode({
-    Version = "2012-10-17"
+    Version   = "2012-10-17"
     Statement = [{ Effect = "Allow", Principal = { Service = "ec2.amazonaws.com" }, Action = "sts:AssumeRole" }]
   })
   tags = local.tags
@@ -39,7 +39,7 @@ resource "aws_iam_role" "ec2" {
 resource "aws_iam_role_policy" "s3_read" {
   role = aws_iam_role.ec2.id
   policy = jsonencode({
-    Version = "2012-10-17"
+    Version   = "2012-10-17"
     Statement = [{ Effect = "Allow", Action = ["s3:GetObject"], Resource = "${aws_s3_bucket.app.arn}/*" }]
   })
 }
@@ -69,7 +69,7 @@ resource "aws_launch_template" "app" {
 
   tag_specifications {
     resource_type = "instance"
-    tags = merge(local.tags, { Name = "${local.name}-app" })
+    tags          = merge(local.tags, { Name = "${local.name}-app" })
   }
 
   lifecycle { create_before_destroy = true }
@@ -77,13 +77,13 @@ resource "aws_launch_template" "app" {
 
 # ── Auto Scaling Group — 2 AZs ────────────────────────────────────
 resource "aws_autoscaling_group" "app" {
-  name                = "${local.name}-asg"
-  min_size            = var.asg_min
-  max_size            = var.asg_max
-  desired_capacity    = var.asg_desired
-  vpc_zone_identifier = aws_subnet.private_app[*].id
-  target_group_arns   = [aws_lb_target_group.app.arn]
-  health_check_type   = "ELB"
+  name                      = "${local.name}-asg"
+  min_size                  = var.asg_min
+  max_size                  = var.asg_max
+  desired_capacity          = var.asg_desired
+  vpc_zone_identifier       = aws_subnet.private_app[*].id
+  target_group_arns         = [aws_lb_target_group.app.arn]
+  health_check_type         = "ELB"
   health_check_grace_period = 120
 
   launch_template {
