@@ -50,7 +50,9 @@ tf-lint:
 # ── Checkov Security Scan ─────────────────────────────────────────
 tf-checkov:
   stage: lint
-  image: bridgecrew/checkov:latest
+  image:
+    name: bridgecrew/checkov:latest
+    entrypoint: [""]
   script:
     - checkov --config-file .checkov.yaml --output junitxml > checkov-report.xml || true
     - checkov --config-file .checkov.yaml
