@@ -1,4 +1,5 @@
 import sys, os
+os.environ["TESTING"] = "1"          # must be set before app module is imported
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'app'))
 
 import pytest

@@ -8,7 +8,7 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-if app.config.get("TESTING"):
+if os.environ.get("TESTING") == "1" or app.config.get("TESTING"):
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
 else:
     DB_USER = os.environ.get("DB_USER", "admin")
