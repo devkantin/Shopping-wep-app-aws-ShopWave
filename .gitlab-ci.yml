@@ -5,14 +5,18 @@ stages:
   - plan
   - cost
   - deploy
+  - destroy
 
 variables:
   TF_ROOT: ${CI_PROJECT_DIR}/terraform
   AWS_DEFAULT_REGION: us-east-1
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
-  # Set these in GitLab → Settings → CI/CD → Variables:
+  # Required GitLab CI/CD variables (Settings → CI/CD → Variables):
   #   TF_STATE_BUCKET      e.g. shopwave-terraform-state-<account-id>
   #   TF_STATE_LOCK_TABLE  e.g. shopwave-terraform-lock
+  #   TF_VAR_DB_PASSWORD   RDS master password
+  #   AWS_ACCESS_KEY_ID    IAM access key
+  #   AWS_SECRET_ACCESS_KEY IAM secret key
   TF_STATE_KEY: shopwave/prod/terraform.tfstate
 
 .tf_init: &tf_init
@@ -177,16 +181,20 @@ tf-deploy:
   dependencies:
     - tf-plan
 
-# ── Terraform Destroy (manual, emergency) ─────────────────────────
-tf-destroy:
-  stage: deploy
-  image:
-    name: hashicorp/terraform:1.6
-    entrypoint: [""]
+# ── Destroy — tag-based AWS cleanup (no state required) ───────────
+destroy:
+  stage: destroy
+  image: amazon/aws-cli:latest
   before_script:
-    - *tf_init
+    - yum install -y bash 2>/dev/null || true
+    - chmod +x bootstrap/destroy-manual.sh
   script:
-    - terraform destroy -auto-approve -var="db_password=$TF_VAR_DB_PASSWORD" -input=false
+    - bash bootstrap/destroy-manual.sh
+  variables:
+    AWS_DEFAULT_REGION: us-east-1
+  environment:
+    name: production
+    action: stop
   rules:
     - if: $CI_COMMIT_BRANCH == "master"
       when: manual
